@@ -24,7 +24,7 @@ app.use(cors());
 app.use(express.json());
 
 //For verify user middleware
-const verifyJWT = (res, res, next) => {
+const verifyJWT = (req, res, next) => {
     const authorization = req.headers.authorization;
     if(!authorization){
         return res.status(401).send({error: true, message: 'Unauthorized Access'})
