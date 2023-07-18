@@ -46,7 +46,8 @@ const verifyJWT = (req, res, next) => {
 
 const { MongoClient, ServerApiVersion,ObjectId } = require('mongodb');
 //this uri is changleable project by project
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.dhitodw.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.lddc2vn.mongodb.net/?retryWrites=true&w=majority`;
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -65,10 +66,15 @@ async function run() {
 /*======================================
  All mongodb collection are here
 =======================================*/
-const usersCollection = client.db("abid").collection("users");
-const blogsCollection = client.db("abid").collection("blogs");
-const paymentsCollection = client.db("abid").collection("payments");
-const projectsCollection = client.db("abid").collection("projects");
+const usersCollection = client.db("server").collection("users");
+const blogsCollection = client.db("server").collection("blogs");
+const paymentsCollection = client.db("server").collection("payments");
+const projectsCollection = client.db("server").collection("projects");
+
+app.get('/', (req,res) => {
+    const result = 'Server is Running';
+    res.send(result);
+})
 
 /*======================================
  All users related function are here
@@ -100,7 +106,7 @@ const verifyAdmin = async(req,res,next) => {
 /*======================================
  users related api
 =======================================*/
-app.get('/users',verifyJWT,verifyAdmin, async(req,res) => {
+app.get('/users', async(req,res) => {
     const result = await usersCollection.find().toArray();
     res.send(result);
 })
@@ -124,7 +130,14 @@ app.post('/users', async(req,res) => {
      check admin
     */
 
-     app.get('/user/admin/:email', async(req,res) => {
+     app.delete('/user/:id', async(req,res) => {
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+        const result = await usersCollection.deleteOne(filter);
+        res.send(result);
+     })
+
+     app.get('/users/admin/:email', verifyJWT, async(req,res) => {
         const email = req.params.email;
         if(req.decoded.email !== email){
             res.send({admin: false})
@@ -135,6 +148,28 @@ app.post('/users', async(req,res) => {
         res.send(result);
      })
 
+     app.get('/users/moderator/:email', verifyJWT, async(req,res) => {
+        const email = req.params.email;
+        if(req.decoded.email !== email){
+            res.send({moderator: false})
+        }
+        const filter = {email : email};
+        const user = await usersCollection.findOne(filter);
+        const result = {moderator: user?.role === 'moderator'};
+        res.send(result);
+     })
+
+     app.patch('/users/moderator/:id', async(req,res) => {
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+        const updateInfo = {
+            $set: {
+                role: 'moderator'
+            }
+        };
+        const result = await usersCollection.updateOne(filter, updateInfo);
+        res.send(result);
+     })
      app.patch('/users/admin/:id', async(req,res) => {
         const id = req.params.id;
         const filter = {_id: new ObjectId(id)};
@@ -157,8 +192,14 @@ app.get('/blogs', async (req, res) => {
     const result = await blogsCollection.find().toArray();
     res.send(result);
   })
+app.get('/blogs/:id', async (req, res) => {
+    const id = req.params.id;
+    const filter = {_id: new ObjectId(id)};
+    const result = await blogsCollection.findOne(filter);
+    res.send(result);
+  })
 
-  app.post('/blogs', verifyJWT, verifyAdmin, async (req, res) => {
+  app.post('/blogs', async (req, res) => {
     const newBlog = req.body;
     const result = await blogsCollection.insertOne(newBlog)
     res.send(result);
@@ -192,13 +233,19 @@ app.get('/blogs', async (req, res) => {
 =======================================*/
 
 app.get('/projects', async (req, res) => {
-    const result = await projectsCollection.find().toArray();
-    res.send(result);
-  })
+    try {
+      const result = await projectsCollection.find().sort({ _id: -1 }).toArray();
+      res.send(result);
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).send('An error occurred');
+    }
+  });
+  
 
-  app.post('/projects', verifyJWT, verifyAdmin, async (req, res) => {
-    const newBlog = req.body;
-    const result = await projectsCollection.insertOne(newBlog)
+  app.post('/projects', async (req, res) => {
+    const newProject = req.body;
+    const result = await projectsCollection.insertOne(newProject)
     res.send(result);
   })
 
